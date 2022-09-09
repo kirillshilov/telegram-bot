@@ -1,4 +1,5 @@
 package pro.sky.telegrambot.listener;
+
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.UpdatesListener;
 import com.pengrad.telegrambot.model.Update;
@@ -10,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import pro.sky.telegrambot.Repository.NotificationTaskRepository;
 import pro.sky.telegrambot.model.NotificationTask;
+
 import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -19,23 +21,23 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-
 @Service
 public class TelegramBotUpdatesListener implements UpdatesListener {
 
 
     final private NotificationTaskRepository notificationTaskRepository;
 
-    private final Logger logger = LoggerFactory.getLogger(TelegramBotUpdatesListener.class);
-
-    @Autowired
-    private TelegramBot telegramBot;
-
-    Pattern pattern = Pattern.compile("([0-9\\.\\:\\s]{16})(\\s)([\\W+]+)");
+    private final Logger logger;
 
     public TelegramBotUpdatesListener(NotificationTaskRepository notificationTaskRepository) {
         this.notificationTaskRepository = notificationTaskRepository;
+        this.logger = LoggerFactory.getLogger(TelegramBotUpdatesListener.class);
     }
+
+    private TelegramBot telegramBot;
+
+    private final Pattern pattern = Pattern.compile("([0-9\\.\\:\\s]{16})(\\s)([\\W+]+)");
+
 
     @PostConstruct
     public void init() {
@@ -48,8 +50,9 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
         updates.forEach(update -> {
             logger.info("Processing update: {}", update);
 
-            SendMessage message = new SendMessage(update.message().chat().id(), "hello");
+
             if (update.message().text().startsWith("/start")) {
+                SendMessage message = new SendMessage(update.message().chat().id(), "hello");
                 telegramBot.execute(message);
             }
             Matcher matcher = pattern.matcher(update.message().text());
@@ -73,18 +76,10 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
     public void run() {
         List<NotificationTask> taskList = notificationTaskRepository.findAllByNotificationDateBefore(LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES));
         if (!taskList.isEmpty()) {
-            for (int i = 0; i < taskList.size(); i++) {
+            for (NotificationTask task : taskList) {
                 SendMessage notificationMessage = new SendMessage(
-                        taskList.
-                                stream().
-                                map(NotificationTask::getChatId).
-                                toList().
-                                get(i),
-                        taskList.
-                                stream().
-                                map(NotificationTask::getMassage).
-                                toList().
-                                get(i));
+                        task.getChatId(),
+                        task.getMassage());
                 telegramBot.execute(notificationMessage);
             }
 
